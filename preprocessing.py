@@ -280,7 +280,24 @@ def count_actions(data:dict, tuples: list, lists: list):
     :return: counts: a list of counts for each candidate clip
 
     """
-    raise NotImplementedError
+
+    #raise NotImplementedError
+    #tuples[{start_tick,end_tick}]
+    ticks = np.array([i['tick'] for i in np.array(data['ui_events']) ])
+    commands = np.array([i['command'] for i in np.array(data['ui_events']) ])
+    counts = []
+    for index, t in enumerate(tuples):
+        count = 0
+        start_index = np.where(ticks==t[0])[0][0]
+        end_index = np.where(ticks==t[1])[0][-1]
+        tmp_ticks_array = ticks[start_index : end_index].copy()
+        # tmp_commands_array = commands[start_index : end_index].copy()
+        tmp_index = ticks[start_index : end_index].copy() - ticks[start_index]
+        for index2, j in enumerate(tmp_ticks_array):
+            if lists[index][tmp_index[index2]]:
+                if commands[j] == 'fire':
+                    count += 1
+        counts.append(count)
     return counts
 
 
