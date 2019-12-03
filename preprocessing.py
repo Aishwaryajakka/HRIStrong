@@ -280,7 +280,15 @@ def count_actions(data:dict, tuples: list, lists: list):
     :return: counts: a list of counts for each candidate clip
 
     """
-    raise NotImplementedError
+
+    #raise NotImplementedError
+    counts = []
+    for inner_lp in list:
+     count = 0
+     for value in inner_lp:
+        if value:
+            count= count + 1;
+     counts.append(count)
     return counts
 
 
