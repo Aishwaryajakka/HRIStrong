@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 from collections import deque
+import copy
 
 DATA_PATH = './json_data/'
 JSON_FILES_PATHS = glob.glob("./json_data/*.json")
@@ -226,7 +227,7 @@ def generate_candidate_clips(data: dict) -> list:
 
     # generate clips
     for event in event_tick:
-        start = event - clip_max_len
+        start = event - min(clip_max_len, event)
         interest_start = start
         for frame in data['frames'][event:start:-1]:
             #  vulnerable or player0 isn't alive or player1 isn't alive
@@ -357,11 +358,14 @@ def generate_clips(file: str):
     game_data = parseJson(file)
     json_data = read_json_file(file)
     candidate_tuples = generate_candidate_clips(game_data)
+    if len(candidate_tuples) == 0:
+        return None
     candidate_in_trust_region = in_trust_region(game_data, candidate_tuples, theta=np.pi / 3)
     #  TODO: Here is the function 3
     counts = count_actions(json_data, candidate_tuples, candidate_in_trust_region)
     idx_with_most_actions = np.argmax(np.array(counts))
-    return file, candidate_tuples[idx_with_most_actions]
+    clipped_json_file = extract_Json_clips(json_data, [candidate_tuples[idx_with_most_actions]])
+    return file, candidate_tuples[idx_with_most_actions], clipped_json_file
 
 
 #  Iterate all json file
@@ -370,9 +374,37 @@ def main():
     for index, file in enumerate(JSON_FILES_PATHS):
         print('%d / %d, Processing %s' % (index, len(JSON_FILES_PATHS), file.split('/')[2]))
         result = generate_clips(file)
+        if not result:
+            print('passed...')
+            continue
         best_clips[result[0]] = result[1]
-
+        with open('./clipped/' + file[12:-5] + '_clipped.json', 'w', encoding='utf-8') as f:
+            json.dump(result[2], f, ensure_ascii=False, indent=4)
     return best_clips
+
+
+def extract_Json_clips(JsonData, clip_ticks):
+    new_Json = {'game_states': [], 'messages': [], 'player_input': JsonData['player_input'], 'ui_events': []}
+
+    for start, end in clip_ticks:
+        game_states_tmp = JsonData['game_states'][start:end]
+        for g in game_states_tmp:
+            g['tick'] -= start
+        new_Json['game_states'].extend(game_states_tmp)
+
+        for messages in JsonData['messages']:
+            if messages['tick'] >= start and messages['tick'] < end:
+                messages_tmp = copy.deepcopy(messages)
+                messages_tmp['tick'] -= start
+                new_Json['messages'].extend(messages_tmp)
+
+        for event in JsonData['ui_events']:
+            if event['tick'] >= start and event['tick'] < end:
+                event_tmp = copy.deepcopy(event)
+                event_tmp['tick'] -= start
+                new_Json['ui_events'].extend(event_tmp)
+
+    return new_Json
 
 
 if __name__ == '__main__':
